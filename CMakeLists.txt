@@ -49,11 +49,31 @@ else()
   target_include_directories(agent_json INTERFACE ${CMAKE_BINARY_DIR}/jsonc_include)
 endif()
 
+# QuickJS-NG is small and has no system packaging worth depending on: always vendor it.
+set(QJS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+  set(_exclude EXCLUDE_FROM_ALL)
+endif()
+FetchContent_Declare(quickjs GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
+                     GIT_TAG v0.17.0 ${_exclude})
+FetchContent_MakeAvailable(quickjs)
+
 # libcurl provides HTTPS; it is available on every mainstream platform.
 find_package(CURL REQUIRED)
 
-add_executable(agent agent.c)
-target_link_libraries(agent PRIVATE agent_uv agent_json CURL::libcurl)
+# Embed the JS prelude into a header.
+set(PRELUDE_JS ${CMAKE_SOURCE_DIR}/src/prelude.js)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PRELUDE_JS})
+file(READ ${PRELUDE_JS} PRELUDE_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," PRELUDE_BYTES "${PRELUDE_HEX}")
+file(WRITE ${CMAKE_BINARY_DIR}/gen/prelude_gen.h
+     "static const unsigned char prelude_js[] = {${PRELUDE_BYTES}0x00};\n")
+
+add_executable(agent src/agent.c src/http.c src/proc.c src/script.c)
+target_include_directories(agent PRIVATE ${CMAKE_BINARY_DIR}/gen)
+target_link_libraries(agent PRIVATE agent_uv agent_json qjs CURL::libcurl)
 if(NOT MSVC)
   target_compile_options(agent PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()

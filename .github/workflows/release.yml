@@ -36,7 +36,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: agent-libuv-*
+          path: |
+            agent-libuv-*.tar.gz
+            agent-libuv-*.tar.gz.sha256
 
   publish:
     needs: build

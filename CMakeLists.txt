@@ -42,7 +42,11 @@ else()
   FetchContent_MakeAvailable(json-c)
   add_library(agent_json INTERFACE)
   target_link_libraries(agent_json INTERFACE json-c)
-  target_include_directories(agent_json INTERFACE ${json-c_SOURCE_DIR} ${json-c_BINARY_DIR})
+  # The source tree has flat headers; stage them so <json-c/json.h> resolves.
+  set(JSONC_STAGE ${CMAKE_BINARY_DIR}/jsonc_include/json-c)
+  file(GLOB JSONC_HEADERS ${json-c_SOURCE_DIR}/*.h ${json-c_BINARY_DIR}/*.h)
+  file(COPY ${JSONC_HEADERS} DESTINATION ${JSONC_STAGE})
+  target_include_directories(agent_json INTERFACE ${CMAKE_BINARY_DIR}/jsonc_include)
 endif()
 
 # libcurl provides HTTPS; it is available on every mainstream platform.
